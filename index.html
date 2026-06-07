@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Management</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, sans-serif;
+}
+
+body{
+    background:#f4f4f4;
+    padding:30px;
+}
+
+.container{
+    max-width:1000px;
+    margin:auto;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.form-box{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+input, textarea, select{
+    width:100%;
+    padding:10px;
+    margin:8px 0;
+    border:1px solid #ddd;
+    border-radius:5px;
+}
+
+button{
+    padding:10px 20px;
+    border:none;
+    cursor:pointer;
+    border-radius:5px;
+}
+
+.add-btn{
+    background:green;
+    color:white;
+}
+
+.task-container{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:15px;
+}
+
+.task{
+    background:white;
+    padding:15px;
+    border-radius:10px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+.task h3{
+    margin-bottom:10px;
+}
+
+.actions{
+    margin-top:10px;
+    display:flex;
+    gap:10px;
+}
+
+.edit{
+    background:orange;
+    color:white;
+}
+
+.delete{
+    background:red;
+    color:white;
+}
+
+.filter{
+    margin-bottom:20px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <h1>Task Management</h1>
+
+    <div class="form-box">
+        <form id="taskForm">
+            <input type="text" id="title" placeholder="Task Title" required>
+
+            <textarea id="description" placeholder="Description"></textarea>
+
+            <input type="text" id="member" placeholder="Assigned Member">
+
+            <input type="date" id="dueDate">
+
+            <select id="priority">
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+            </select>
+
+            <select id="status">
+                <option value="Todo">Todo</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+            </select>
+
+            <button class="add-btn" type="submit">
+                Add Task
+            </button>
+        </form>
+    </div>
+
+    <div class="filter">
+        <select id="filterStatus">
+            <option value="All">All Tasks</option>
+            <option value="Todo">Todo</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+        </select>
+    </div>
+
+    <div id="taskList" class="task-container"></div>
+
+</div>
+
+<script>
+let tasks = [];
+let editIndex = null;
+
+const taskForm = document.getElementById("taskForm");
+const taskList = document.getElementById("taskList");
+const filterStatus = document.getElementById("filterStatus");
+
+taskForm.addEventListener("submit", function(e){
+    e.preventDefault();
+
+    const task = {
+        title: document.getElementById("title").value,
+        description: document.getElementById("description").value,
+        member: document.getElementById("member").value,
+        dueDate: document.getElementById("dueDate").value,
+        priority: document.getElementById("priority").value,
+        status: document.getElementById("status").value
+    };
+
+    if(editIndex === null){
+        tasks.push(task);
+    }else{
+        tasks[editIndex] = task;
+        editIndex = null;
+    }
+
+    taskForm.reset();
+    renderTasks();
+});
+
+function renderTasks(){
+
+    const selectedStatus = filterStatus.value;
+
+    taskList.innerHTML = "";
+
+    const filteredTasks = selectedStatus === "All"
+    ? tasks
+    : tasks.filter(task => task.status === selectedStatus);
+
+    filteredTasks.forEach((task,index)=>{
+
+        taskList.innerHTML += `
+        <div class="task">
+            <h3>${task.title}</h3>
+
+            <p><strong>Description:</strong> ${task.description}</p>
+
+            <p><strong>Assigned:</strong> ${task.member}</p>
+
+            <p><strong>Due Date:</strong> ${task.dueDate}</p>
+
+            <p><strong>Priority:</strong> ${task.priority}</p>
+
+            <p><strong>Status:</strong> ${task.status}</p>
+
+            <div class="actions">
+                <button class="edit"
+                    onclick="editTask(${index})">
+                    Edit
+                </button>
+
+                <button class="delete"
+                    onclick="deleteTask(${index})">
+                    Delete
+                </button>
+            </div>
+        </div>
+        `;
+    });
+}
+
+function deleteTask(index){
+    tasks.splice(index,1);
+    renderTasks();
+}
+
+function editTask(index){
+
+    const task = tasks[index];
+
+    document.getElementById("title").value = task.title;
+    document.getElementById("description").value = task.description;
+    document.getElementById("member").value = task.member;
+    document.getElementById("dueDate").value = task.dueDate;
+    document.getElementById("priority").value = task.priority;
+    document.getElementById("status").value = task.status;
+
+    editIndex = index;
+}
+
+filterStatus.addEventListener("change", renderTasks);
+
+renderTasks();
+</script>
+
+</body>
+</html>
