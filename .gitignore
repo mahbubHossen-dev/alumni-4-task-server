@@ -1,3 +1,4 @@
 .env
 .vercel
 .gitignore
+node_modules
