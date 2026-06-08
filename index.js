@@ -43,6 +43,14 @@ async function run() {
     //   res.send(result)
     // })
 
+    app.get('/users/:email/role', async (req, res) => {
+      const email = req.params?.email;
+      const query = {email}
+      const user = await users.findOne(query)
+      res.send({role: user?.role} || 'user-server')
+      console.log(user)
+    })
+
     app.get('/projects', async (req, res) => {
 
       const {
@@ -114,6 +122,46 @@ async function run() {
       // console.log(userData)
     })
 
+
+    app.patch('/projects/add-member/:id', async (req, res) => {
+
+
+        const { id } = req.params;
+        const { member } = req.body;
+
+        const project = await projectsCollection.findOne({
+          _id: new ObjectId(id)
+        });
+
+        if (!project) {
+          return res.send({
+            message: "Project not found"
+          });
+        }
+
+        if (
+          project.teamMembers?.includes(member)
+        ) {
+          return res.send({
+            message: "Member already exists"
+          });
+        }
+
+        const result =
+          await projectsCollection.updateOne(
+            {
+              _id: new ObjectId(id)
+            },
+            {
+              $push: {
+                teamMembers: member
+              }
+            }
+          );
+
+        res.send(result);
+    });
+
     app.post('/tasks', async (req, res) => {
       try {
         const task = req.body;
@@ -176,27 +224,27 @@ async function run() {
 
     app.patch('/tasks/status/:id', async (req, res) => {
 
-        const { id } = req.params;
-        const { status } = req.body;
+      const { id } = req.params;
+      const { status } = req.body;
 
-        const result = await taskCollection.updateOne(
-          {
-            _id: new ObjectId(id)
-          },
-          {
-            $set: {
-              status,
-              updatedAt: new Date()
-            }
+      const result = await taskCollection.updateOne(
+        {
+          _id: new ObjectId(id)
+        },
+        {
+          $set: {
+            status,
+            updatedAt: new Date()
           }
-        );
+        }
+      );
 
-        res.send({
-          success: true,
-          modifiedCount: result.modifiedCount
-        });
+      res.send({
+        success: true,
+        modifiedCount: result.modifiedCount
+      });
 
-      
+
     });
 
     app.get('/tasks', async (req, res) => {
