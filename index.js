@@ -45,10 +45,10 @@ async function run() {
 
     app.get('/users/:email/role', async (req, res) => {
       const email = req.params?.email;
-      const query = {email}
+      const query = { email }
       const user = await users.findOne(query)
-      res.send({role: user?.role} || 'user-server')
-      console.log(user)
+      res.send({ role: user?.role } || 'user-server')
+      // console.log(user)
     })
 
     app.get('/projects', async (req, res) => {
@@ -123,43 +123,82 @@ async function run() {
     })
 
 
+    app.delete('/projects/:id', async (req, res) => {
+
+
+      const { id } = req.params;
+
+      const result = await projectsCollection.deleteOne({
+        _id: new ObjectId(id)
+      });
+
+      res.send(result)
+    })
+
+
+    app.patch('/projects/:id', async (req, res) => {
+
+
+      const { id } = req.params;
+      const updatedData = req.body;
+      const query = { _id: new ObjectId(id) }
+
+      const result = await projectsCollection.updateOne(
+        query,
+        {
+          $set: {
+            projectName: updatedData.projectName,
+            description: updatedData.description,
+            deadline: updatedData.deadline,
+            status: updatedData.status,
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      res.send(result);
+
+
+    });
+
+
     app.patch('/projects/add-member/:id', async (req, res) => {
 
 
-        const { id } = req.params;
-        const { member } = req.body;
+      const { id } = req.params;
+      const { member } = req.body;
 
-        const project = await projectsCollection.findOne({
-          _id: new ObjectId(id)
+      const project = await projectsCollection.findOne({
+        _id: new ObjectId(id)
+      });
+
+      if (!project) {
+        return res.send({
+          message: "Project not found"
         });
+      }
 
-        if (!project) {
-          return res.send({
-            message: "Project not found"
-          });
-        }
+      if (
+        project.teamMembers?.includes(member)
+      ) {
+        return res.send({
+          message: "Member already exists"
+        });
+      }
 
-        if (
-          project.teamMembers?.includes(member)
-        ) {
-          return res.send({
-            message: "Member already exists"
-          });
-        }
-
-        const result =
-          await projectsCollection.updateOne(
-            {
-              _id: new ObjectId(id)
-            },
-            {
-              $push: {
-                teamMembers: member
-              }
+      const result =
+        await projectsCollection.updateOne(
+          {
+            _id: new ObjectId(id)
+          },
+          {
+            $push: {
+              teamMembers: member
             }
-          );
+          }
+        );
 
-        res.send(result);
+      res.send(result);
     });
 
     app.post('/tasks', async (req, res) => {
@@ -198,6 +237,9 @@ async function run() {
             message: "This task already exists in the project."
           });
         }
+
+        // console.log(task.projectID);
+        // console.log(task.taskTitle);
 
         const result = await taskCollection.insertOne({
           ...task,
@@ -597,6 +639,134 @@ async function run() {
 
       res.send(summary);
     });
+
+
+    app.get('/analytics/task-priority', async (req, res) => {
+
+      const high = await taskCollection.countDocuments({
+        priority: "High"
+      });
+
+      const medium = await taskCollection.countDocuments({
+        priority: "Medium"
+      });
+
+      const low = await taskCollection.countDocuments({
+        priority: "Low"
+      });
+
+      res.send([
+        {
+          name: "High",
+          value: high
+        },
+        {
+          name: "Medium",
+          value: medium
+        },
+        {
+          name: "Low",
+          value: low
+        }
+      ]);
+    });
+
+    app.get('/analytics/task-status', async (req, res) => {
+
+  const todo =
+    await taskCollection.countDocuments({
+      status: "Todo"
+    });
+
+  const progress =
+    await taskCollection.countDocuments({
+      status: "In Progress"
+    });
+
+  const completed =
+    await taskCollection.countDocuments({
+      status: "Completed"
+    });
+
+  res.send([
+    {
+      status: "Todo",
+      count: todo
+    },
+    {
+      status: "In Progress",
+      count: progress
+    },
+    {
+      status: "Completed",
+      count: completed
+    }
+  ]);
+});
+
+app.get('/analytics/team-productivity', async (req, res) => {
+
+  const result =
+    await taskCollection.aggregate([
+      {
+        $match: {
+          status: "Completed"
+        }
+      },
+      {
+        $group: {
+          _id: "$assignedMember",
+          completedTasks: {
+            $sum: 1
+          }
+        }
+      }
+    ]).toArray();
+
+  res.send(result);
+});
+
+app.get('/analytics/project-progress', async (req, res) => {
+
+  const projects =
+    await projectsCollection.find().toArray();
+
+  const result =
+    await Promise.all(
+
+      projects.map(async project => {
+
+        const tasks =
+          await taskCollection.find({
+            projectID:
+              project._id.toString()
+          }).toArray();
+
+        const total =
+          tasks.length;
+
+        const completed =
+          tasks.filter(
+            t =>
+              t.status === "Completed"
+          ).length;
+
+        return {
+          projectName:
+            project.projectName,
+
+          progress:
+            total === 0
+              ? 0
+              : Math.round(
+                  completed * 100 / total
+                )
+        };
+      })
+    );
+
+  res.send(result);
+});
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
