@@ -9,7 +9,7 @@ app.use(express.json())
 // app.use(cors())
 
 app.use(cors({
-    origin: ['https://alumni-4-task-server.onrender.com', 'http://localhost:5173'],
+    origin: ['https://alumni-4-task.web.app', 'http://localhost:5173', 'https://alumni-4-task-server.onrender.com',],
     credentials: true,
     optionalSuccessStatus: 200
 }))
