@@ -6,10 +6,19 @@ const port = process.env.PORT || 3000
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 app.use(express.json())
-app.use(cors())
+// app.use(cors())
+
+app.use(cors({
+    origin: ['http://localhost:5173'],
+    credentials: true,
+    optionalSuccessStatus: 200
+}))
+
+
+
 
 const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0-shard-00-00.xdjfp.mongodb.net:27017,cluster0-shard-00-01.xdjfp.mongodb.net:27017,cluster0-shard-00-02.xdjfp.mongodb.net:27017/?ssl=true&replicaSet=atlas-kgt0co-shard-0&authSource=admin&appName=Cluster0`;
-
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xdjfp.mongodb.net/?appName=Cluster0`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -28,6 +37,13 @@ async function run() {
     const users = db.collection('users')
     const projectsCollection = db.collection('projects')
     const taskCollection = db.collection('tasks')
+
+    app.get('/test-env', (req, res) => {
+  res.send({
+    user: process.env.DB_USER,
+    pass: process.env.DB_PASS
+  })
+})
 
     app.post('/user', async (req, res) => {
       const userData = req.body
@@ -50,6 +66,11 @@ async function run() {
       res.send({ role: user?.role } || 'user-server')
       // console.log(user)
     })
+
+    app.get('/allTasks', async (req, res) => {
+      const result = await taskCollection.find().toArray();
+      res.send(result);
+    });
 
     app.get('/projects', async (req, res) => {
 
@@ -114,14 +135,12 @@ async function run() {
       res.send(projects);
     });
 
-
     app.post('/projects', async (req, res) => {
       const projectData = req.body
       const result = await projectsCollection.insertOne(projectData)
       res.send(result)
       // console.log(userData)
     })
-
 
     app.delete('/projects/:id', async (req, res) => {
 
@@ -673,105 +692,106 @@ async function run() {
 
     app.get('/analytics/task-status', async (req, res) => {
 
-  const todo =
-    await taskCollection.countDocuments({
-      status: "Todo"
-    });
+      const todo =
+        await taskCollection.countDocuments({
+          status: "Todo"
+        });
 
-  const progress =
-    await taskCollection.countDocuments({
-      status: "In Progress"
-    });
+      const progress =
+        await taskCollection.countDocuments({
+          status: "In Progress"
+        });
 
-  const completed =
-    await taskCollection.countDocuments({
-      status: "Completed"
-    });
-
-  res.send([
-    {
-      status: "Todo",
-      count: todo
-    },
-    {
-      status: "In Progress",
-      count: progress
-    },
-    {
-      status: "Completed",
-      count: completed
-    }
-  ]);
-});
-
-app.get('/analytics/team-productivity', async (req, res) => {
-
-  const result =
-    await taskCollection.aggregate([
-      {
-        $match: {
+      const completed =
+        await taskCollection.countDocuments({
           status: "Completed"
+        });
+
+      res.send([
+        {
+          status: "Todo",
+          count: todo
+        },
+        {
+          status: "In Progress",
+          count: progress
+        },
+        {
+          status: "Completed",
+          count: completed
         }
-      },
-      {
-        $group: {
-          _id: "$assignedMember",
-          completedTasks: {
-            $sum: 1
+      ]);
+    });
+
+    app.get('/analytics/team-productivity', async (req, res) => {
+
+      const result =
+        await taskCollection.aggregate([
+          {
+            $match: {
+              status: "Completed"
+            }
+          },
+          {
+            $group: {
+              _id: "$assignedMember",
+              completedTasks: {
+                $sum: 1
+              }
+            }
           }
-        }
-      }
-    ]).toArray();
+        ]).toArray();
 
-  res.send(result);
-});
+      res.send(result);
+    });
 
-app.get('/analytics/project-progress', async (req, res) => {
+    app.get('/analytics/project-progress', async (req, res) => {
 
-  const projects =
-    await projectsCollection.find().toArray();
+      const projects =
+        await projectsCollection.find().toArray();
 
-  const result =
-    await Promise.all(
+      const result =
+        await Promise.all(
 
-      projects.map(async project => {
+          projects.map(async project => {
 
-        const tasks =
-          await taskCollection.find({
-            projectID:
-              project._id.toString()
-          }).toArray();
+            const tasks =
+              await taskCollection.find({
+                projectID:
+                  project._id.toString()
+              }).toArray();
 
-        const total =
-          tasks.length;
+            const total =
+              tasks.length;
 
-        const completed =
-          tasks.filter(
-            t =>
-              t.status === "Completed"
-          ).length;
+            const completed =
+              tasks.filter(
+                t =>
+                  t.status === "Completed"
+              ).length;
 
-        return {
-          projectName:
-            project.projectName,
+            return {
+              projectName:
+                project.projectName,
 
-          progress:
-            total === 0
-              ? 0
-              : Math.round(
-                  completed * 100 / total
-                )
-        };
-      })
-    );
+              progress:
+                total === 0
+                  ? 0
+                  : Math.round(
+                    completed * 100 / total
+                  )
+            };
+          })
+        );
 
-  res.send(result);
-});
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  }
+  finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
   }
@@ -788,3 +808,5 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+
+module.exports = app;
